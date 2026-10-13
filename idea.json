@@ -1,0 +1,28 @@
+{
+  "title": "giftlet — a personal gift website in two minutes",
+  "repoName": "giftlet",
+  "oneLiner": "For someone with a birthday, anniversary or send-off days away, it turns a few answers and their own photos into a private one-page website with funny AI copy and a printable keepsake for $9–$19.",
+  "overlaps": "none (closest in the portfolio is squadwrap, a friend-group award-slide generator; this is a single-recipient gift page)",
+  "tags": [
+    "fun",
+    "consumer",
+    "one-time",
+    "reach:community",
+    "gifts",
+    "ai"
+  ],
+  "effort": "Low",
+  "confidence": "Low",
+  "sources": [
+    "https://www.etsy.com/listing/1857223924/customizable-website-digital-love-letter",
+    "https://www.etsy.com/market/love_letter_digital",
+    "https://funeral.com/blogs/the-journal/online-memorial-walls-kudoboard-and-similar-how-they-work-costs-and-moderation-tips",
+    "https://g2.com/products/kudoboard/reviews?page=2",
+    "https://onepagelove.com/carrd-pricing",
+    "https://yomotherboard.com/question/creative-gift-ideas-for-my-developer-girlfriend/",
+    "https://thinkwithgoogle.com/data/last-minute-shopper-statistics"
+  ],
+  "seedId": "seed-9a76e9",
+  "slug": "giftlet",
+  "recordedAt": "2026-10-13T08:18:00.179Z"
+}

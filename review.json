@@ -1,0 +1,64 @@
+{
+  "verdict": "pass",
+  "score": 4,
+  "summary": "Thin demand evidence (Etsy snippets, no volume data), a $2–$5 template floor, and no distribution channel for a one-time, deadline-driven consumer purchase. Photo hosting of real people adds a moderation burden for a low-ticket product.",
+  "forcingQuestions": {
+    "demand": {
+      "score": 3,
+      "evidence": "Etsy love-letter website listings exist ($40 custom, $2–$5 templates) and Kudoboard charges $5.99–$19.99, but RESEARCH.md found no volume data, and the TikTok trend in the seed was NOT FOUND. Only snippets; Etsy pages returned 403. Interest, not demand."
+    },
+    "statusQuo": {
+      "score": 5,
+      "evidence": "Status quo is a real, cheap workaround: Canva/Etsy templates at $2–$5, Carrd free, Kudoboard free Mini board, or just a card. The buyer's cost is roughly an hour of writing, which is modest, and giftlet's $9–$19 is 3–5x the template price."
+    },
+    "specificity": {
+      "score": 3,
+      "evidence": "Target is 'a consumer with an occasion in 1–7 days'. That is a situation, not a person; no named buyer or community. The only human cited is an anecdotal forum post from a developer who built one himself, which shows the DIY buyer isn't the paying buyer."
+    },
+    "wedge": {
+      "score": 5,
+      "evidence": "Narrow wedge is buildable: one theme, five questions, pay-after-preview at $9. But it competes on convenience against free/near-free options, and the one-time purchase has no repeat loop beyond the unproven 'make one' credit."
+    },
+    "futureFit": {
+      "score": 4,
+      "evidence": "General chatbots and AI site builders will make 'generate a page from answers' free. The moat is only polish and emotional framing; no specific claim that the product becomes more essential."
+    }
+  },
+  "premises": [
+    "Buyers will pay $9–$19 for a finished page when $2–$5 templates exist: unsupported, no price-testing evidence.",
+    "Last-minute gifters want a website specifically (vs. a card, video or photo book): only Etsy snippets suggest it.",
+    "Recipients will use the 'make one' credit and create a viral loop: untested, and gift recipients are unlikely to buy a gift in response.",
+    "Hosting real photos of real people stays safe via unlisted links and a takedown path: plausible but a continuous burden for a solo owner."
+  ],
+  "alternatives": [
+    "Minimal: a template pack plus a free-model prompt sheet, no hosting or storage; ships in a day but earns $2–$5 per sale.",
+    "Ideal: the full product with themes, keepsake PDF, occasion landing pages and Stripe, M1–M3 as roadmapped; weeks of work for a seasonal one-time purchase.",
+    "Lateral: sell the done-for-you version by hand on Etsy ($15–$25 per page, David generates it from a form) to test price without building payments or hosting.",
+    "Extend an existing repo: squadwrap (friend-group award slides) already covers the generate-shareable-page-from-answers pattern, so reuse its generator if anything is built."
+  ],
+  "wedge": "One theme, birthday only, five questions plus 3 photos, a preview page and a $9 pay-after-preview button, sold via a single landing page.",
+  "feasibility": {
+    "m1Weekend": true,
+    "zeroCost": true,
+    "notes": "Next.js static export on Cloudflare Pages/R2 free tiers plus a free-model call is weekend-feasible and $0 until Stripe takes its cut. The one test proving M1: POST /generate with a name, 4 memories (one containing <script>) and 3 photos returns a 12+ char slug and a noindex page containing the name and photos with the script escaped. Caveat: photo storage, moderation and takedown are an ongoing duty, not just a build."
+  },
+  "risks": [
+    "Willingness to pay $9–$19 against $2–$5 templates and free AI tools.",
+    "Seasonal and deadline-driven: no repeat purchase, peaks around Valentine's Day.",
+    "No distribution channel; Etsy needs a storefront and fees, communities don't target last-minute gifters.",
+    "Content risk: personal photos, minors, harassment pages; moderation falls on a solo owner.",
+    "AI copy may feel generic, undermining the personal-gift promise."
+  ],
+  "killCriteria": "Pass again if, after a hand-fulfilled test, fewer than 3 people pay $9+ in 30 days, or if the paying buyers demand custom edits that make the service manual.",
+  "landing": {
+    "headline": "",
+    "subhead": "",
+    "bullets": [],
+    "cta": "",
+    "audience": ""
+  },
+  "launch": {
+    "channels": [],
+    "post": ""
+  }
+}

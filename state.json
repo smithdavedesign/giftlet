@@ -1,0 +1,16 @@
+{
+  "stage": "build",
+  "review": {
+    "verdict": "pass",
+    "score": 4,
+    "summary": "Thin demand evidence (Etsy snippets, no volume data), a $2–$5 template floor, and no distribution channel for a one-time, deadline-driven consumer purchase. Photo hosting of real people adds a moderation burden for a low-ticket product.",
+    "at": "2026-10-13T08:18:51.267Z"
+  },
+  "updatedAt": "2026-10-13T08:34:48.658Z",
+  "ownerApproved": true,
+  "ownerDecision": {
+    "decision": "build",
+    "at": "2026-10-13T08:34:48.658Z",
+    "source": "repohq"
+  }
+}
