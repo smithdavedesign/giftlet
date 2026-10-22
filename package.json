@@ -1,0 +1,26 @@
+{
+  "name": "giftlet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A personal gift website in two minutes: a few answers and your photos become a private one-page site.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --test-reporter=spec \"test/*.test.js\"",
+    "dev": "node scripts/dev.js",
+    "funnel": "node scripts/funnel.js",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "pdf-lib": "^1.17.1",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.0",
+    "@hono/node-server": "^1.13.0",
+    "playwright-core": "^1.64.1"
+  }
+}
