@@ -3,13 +3,18 @@
 //
 //   GET  /                     questionnaire (?occasion= preselects; ?from=landing|credit is counted)
 //   GET  /birthday, /anniversary, /retirement   occasion landing pages (static, indexable)
+//   GET  /privacy, /terms      the policy pages (static, indexable)
+//   GET  /robots.txt, /sitemap.xml, /og.png    for search engines and link previews
 //   GET  /form.js              browser script (photo shrinking + submit)
+//   GET  /beacon.js            RepoHQ usage beacon (only production pages load it)
 //   GET  /c/:event/:occasion?  1×1 counting pixel (first-party analytics, counts only)
 //   POST /generate             validate -> write copy -> store -> 201 { slug, url, takedownUrl }
 //   GET  /p/:slug              the gift page (noindex); a watermarked preview until paid
 //   GET  /p/:slug/photo/:n     photo bytes
 //   GET  /p/:slug/print        the keepsake PDF once paid; 402 before
 //   POST /p/:slug/checkout     unpaid page -> Stripe Checkout Session -> 303 to Stripe
+//                              (with STRIPE_PAYMENT_LINK the Buy button links straight to the payment link instead)
+//   GET  /paid                 the payment link's return URL: waits for the webhook, then 303 to the page
 //   GET  /p/:slug/takedown     confirm removal (never deletes: link previewers fetch URLs)
 //   POST /p/:slug/takedown     remove page + photos; everything under /p/:slug is 404 afterwards
 //   POST /stripe/webhook       signed Stripe events; a paid giftlet checkout unlocks its page
@@ -19,10 +24,12 @@ import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
 import { LIMITS, OCCASIONS, readSubmission } from './answers.js'
 import { EVENTS, PIXEL_GIF, shouldCount } from './analytics.js'
+import { SIGNAL_URL, beaconClient } from './beacon.js'
 import { normalizeCopy } from './copy.js'
 import { formClient } from './client.js'
 import { KEEPSAKE_LIMITS, keepsakeFilename, keepsakePdf } from './keepsake.js'
-import { paidCheckout, verifyStripeEvent } from './payments.js'
+import { paidCheckout, paymentLinkFor, paymentLinkUrl, verifyStripeEvent } from './payments.js'
+import { SHARE_IMAGE, shareImagePng } from './share-image.js'
 import {
   LANDING_PAGES,
   STYLE_HASH,
@@ -32,8 +39,13 @@ import {
   keepsakeLockedPage,
   landingPage,
   notFoundPage,
+  paidReturnPage,
+  privacyPage,
   removedPage,
+  robotsTxt,
+  sitemapXml,
   takedownPage,
+  termsPage,
   unavailablePage,
 } from './pages.js'
 
@@ -45,21 +57,60 @@ const MAX_BODY_BYTES = LIMITS.photosMax * LIMITS.photoMaxBytes + 1024 * 1024
 // Stripe's checkout events are a few KB; anything near this is not from Stripe.
 const WEBHOOK_MAX_BYTES = 256 * 1024
 const CLIENT_JS = `(${formClient})();\n`
+const BEACON_JS = `(${beaconClient})();\n`
+// A Stripe Checkout Session id, as the payment link's return URL carries it.
+const SESSION_ID_PATTERN = /^cs_(?:test|live)_[A-Za-z0-9]{8,240}$/
+// /paid reloads every 3 s while the webhook is on its way; after this many tries it stops.
+const PAID_RETURN_TRIES = 20
+const PUBLIC_CACHE = 'public, max-age=300'
 
 // 16 random bytes -> 22 URL-safe characters (128 bits): the slug is the page's only secret.
 export const newSlug = () => randomBytes(16).toString('base64url')
 
+// SITE_URL or Vercel's VERCEL_PROJECT_PRODUCTION_URL (a bare host) -> an origin, or null.
+export function siteOrigin(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const url = new URL(/^https?:\/\//i.test(value.trim()) ? value.trim() : `https://${value.trim()}`)
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
 // createCheckout: async ({ slug, origin }) => { url } (payments.stripeCheckout), or null when payments are off.
 // stripeWebhookSecret: without it, every webhook is refused and nothing can be unlocked.
+// paymentLink: STRIPE_PAYMENT_LINK. When set (with the webhook secret), the Buy button opens it.
+// siteUrl: the canonical origin for canonical/og URLs, robots.txt and the sitemap (else the request's).
+// beacon: load the RepoHQ usage beacon on pages (production deployments only).
 export function createApp({
   store,
   writeCopy = async () => null,
   createCheckout = null,
   stripeWebhookSecret = null,
+  paymentLink = null,
+  siteUrl = null,
+  beacon = false,
   makeSlug = newSlug,
   log = console,
 }) {
   const app = new Hono()
+
+  const buyLink = paymentLinkUrl(paymentLink)
+  if (paymentLink && !buyLink) log.warn('giftlet: STRIPE_PAYMENT_LINK is not an https URL; the Buy button stays hidden')
+  if ((buyLink || createCheckout) && !stripeWebhookSecret) {
+    log.warn('giftlet: STRIPE_WEBHOOK_SECRET is not set, so no payment could unlock a page; the Buy button stays hidden')
+  }
+  // How an unpaid page takes payment, or null to hide the Buy button. Both ways need the
+  // webhook secret: taking money that can never unlock the page would be worse than no button.
+  const checkoutFor = (slug) => {
+    if (!stripeWebhookSecret) return null
+    if (buyLink) return { href: paymentLinkFor(buyLink, slug) }
+    if (createCheckout) return { action: `/p/${slug}/checkout` }
+    return null
+  }
+  const canonical = siteOrigin(siteUrl)
+  const site = (c) => ({ origin: canonical ?? new URL(c.req.url).origin, beacon: Boolean(beacon) })
 
   // Registered first, so it runs after secureHeaders has set its headers: a PDF goes out
   // without the HTML CSP, because Chrome's built-in viewer draws a blank page under
@@ -77,7 +128,7 @@ export function createApp({
       contentSecurityPolicy: {
         defaultSrc: ["'none'"],
         scriptSrc: ["'self'"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", new URL(SIGNAL_URL).origin], // the RepoHQ beacon posts there
         imgSrc: ["'self'", 'blob:'],
         styleSrc: [STYLE_HASH],
         // Chrome and Safari also check form-action against the 303 that follows a form
@@ -101,16 +152,52 @@ export function createApp({
     return SLUG_PATTERN.test(slug) ? slug : null
   }
 
-  app.get('/', (c) => c.html(formPage({ occasion: c.req.query('occasion'), from: c.req.query('from') })))
+  app.get('/', (c) => c.html(formPage({ occasion: c.req.query('occasion'), from: c.req.query('from'), site: site(c) })))
 
   // Landing pages never touch the database (a cold Neon start would delay the first
   // impression); their view is counted by the pixel request the browser makes next.
   for (const [occasion, landing] of Object.entries(LANDING_PAGES)) {
     app.get(landing.path, (c) => {
-      c.header('Cache-Control', 'public, max-age=300')
-      return c.html(landingPage(occasion))
+      c.header('Cache-Control', PUBLIC_CACHE)
+      return c.html(landingPage(occasion, site(c)))
     })
   }
+
+  app.get('/privacy', (c) => {
+    c.header('Cache-Control', PUBLIC_CACHE)
+    return c.html(privacyPage(site(c)))
+  })
+  app.get('/terms', (c) => {
+    c.header('Cache-Control', PUBLIC_CACHE)
+    return c.html(termsPage(site(c)))
+  })
+
+  app.get('/robots.txt', (c) => c.text(robotsTxt(site(c).origin), 200, { 'Cache-Control': PUBLIC_CACHE }))
+  app.get('/sitemap.xml', (c) =>
+    c.body(sitemapXml(site(c).origin), 200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': PUBLIC_CACHE }),
+  )
+  app.get(SHARE_IMAGE.path, (c) =>
+    c.body(shareImagePng(), 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }),
+  )
+  app.get('/beacon.js', (c) =>
+    c.body(BEACON_JS, 200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': PUBLIC_CACHE }),
+  )
+
+  // The payment link's return URL (David sets it on the link as
+  // /paid?session_id={CHECKOUT_SESSION_ID}). The webhook records the session on the page it
+  // unlocked, so this only ever redirects to a page that is already paid.
+  app.get('/paid', async (c) => {
+    c.header('X-Robots-Tag', 'noindex, nofollow')
+    c.header('Cache-Control', 'private, no-store')
+    const sessionId = c.req.query('session_id') ?? ''
+    if (!SESSION_ID_PATTERN.test(sessionId)) return c.html(paidReturnPage())
+    if (!store) return unavailable(c)
+    const slug = await store.findPaidSlug(sessionId)
+    if (slug && SLUG_PATTERN.test(slug)) return c.redirect(`/p/${slug}?checkout=success`, 303)
+    const tries = /^[0-9]{1,3}$/.test(c.req.query('wait') ?? '') ? Number(c.req.query('wait')) : 0
+    const refreshUrl = tries < PAID_RETURN_TRIES ? `/paid?session_id=${sessionId}&wait=${tries + 1}` : null
+    return c.html(paidReturnPage({ refreshUrl }))
+  })
 
   // Answers the GIF whatever happens, so a counting problem never shows on a page.
   app.get('/c/:event/:occasion?', async (c) => {
@@ -175,7 +262,10 @@ export function createApp({
     if (!gift) return notFound(c)
     const fromCheckout = c.req.query('checkout') === 'success'
     const origin = new URL(c.req.url).origin
-    return c.html(giftPage({ slug, ...gift.content, paid: Boolean(gift.paidAt), fromCheckout, origin }))
+    const paid = Boolean(gift.paidAt)
+    return c.html(
+      giftPage({ slug, ...gift.content, paid, fromCheckout, origin, checkout: paid ? null : checkoutFor(slug), site: site(c) }),
+    )
   })
 
   // Pay after preview. Only creates a session: the page unlocks when Stripe's signed
@@ -187,7 +277,7 @@ export function createApp({
     const gift = await store.getGift(slug)
     if (!gift) return notFound(c)
     if (gift.paidAt) return c.redirect(`/p/${slug}`, 303)
-    if (!createCheckout) return c.html(checkoutProblemPage({ slug, configured: false }), 503)
+    if (!createCheckout || !stripeWebhookSecret) return c.html(checkoutProblemPage({ slug, configured: false }), 503)
     let session
     try {
       session = await createCheckout({ slug, origin: new URL(c.req.url).origin })
@@ -216,7 +306,7 @@ export function createApp({
     if (!store) return unavailable(c)
     const gift = await store.getGift(slug)
     if (!gift) return notFound(c)
-    if (!gift.paidAt) return c.html(keepsakeLockedPage({ slug }), 402)
+    if (!gift.paidAt) return c.html(keepsakeLockedPage({ slug, checkout: checkoutFor(slug), site: site(c) }), 402)
     const photos = await store.getPhotos(slug, KEEPSAKE_LIMITS.photos)
     const pdf = await keepsakePdf({ ...gift.content, photos })
     return c.body(pdf, 200, {

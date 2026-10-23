@@ -127,6 +127,18 @@ describe('store: payment state (M2)', () => {
     assert.equal(await store.getGift(SLUG), null)
   })
 
+  test('findPaidSlug finds the live page a session paid for, and nothing else', async () => {
+    const { store } = await freshStore()
+    assert.equal(await store.findPaidSlug(SESSION), null, 'empty database')
+    await store.createPage({ slug: SLUG, content: CONTENT, photos: PHOTOS })
+    assert.equal(await store.findPaidSlug(SESSION), null, 'not paid yet')
+    await store.markPaid(SLUG, SESSION)
+    assert.equal(await store.findPaidSlug(SESSION), SLUG)
+    assert.equal(await store.findPaidSlug(SESSION.replace('a1B2', 'z9Y8')), null, 'another session')
+    await store.takeDown(SLUG)
+    assert.equal(await store.findPaidSlug(SESSION), null, 'taken down')
+  })
+
   test('a takedown of a paid page keeps the payment on the tombstone (for refunds)', async () => {
     const { db, store } = await freshStore()
     await store.createPage({ slug: SLUG, content: CONTENT, photos: PHOTOS })

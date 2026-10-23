@@ -81,6 +81,8 @@ export function formClient() {
       const res = await fetch('/generate', { method: 'POST', body: data, headers: { accept: 'application/json' } })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || `Something went wrong (${res.status}). Please try again.`)
+      // The core action worked: /beacon.js (production only) counts it as "activate".
+      document.dispatchEvent(new Event('giftlet:activate'))
       window.location.assign(body.url)
     } catch (err) {
       say(err.message, true)

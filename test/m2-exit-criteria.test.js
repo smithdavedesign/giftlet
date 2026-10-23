@@ -25,9 +25,15 @@ async function pageHtml(app, slug) {
   return res.text()
 }
 
-function assertLocked(html, slug) {
+// `buy: false` when payments can't unlock anything (no webhook secret): then the page
+// must not offer the unlock button at all, and says payments are off instead.
+function assertLocked(html, slug, { buy = true } = {}) {
   assert.ok(hasWatermark(html), 'unpaid page shows the watermark')
-  assert.ok(html.includes(`action="/p/${slug}/checkout"`), 'unpaid page offers the unlock button')
+  if (buy) assert.ok(html.includes(`action="/p/${slug}/checkout"`), 'unpaid page offers the unlock button')
+  else {
+    assert.ok(!html.includes('/checkout"') && !html.includes('data-signal="checkout"'), 'no unlock button')
+    assert.match(html, /Payments aren't switched on yet/)
+  }
   assert.ok(!html.includes(keepsakeHref(slug)), 'unpaid page has no keepsake link')
   assert.doesNotMatch(html, /keepsake<\/a>/i)
 }
@@ -124,7 +130,8 @@ describe('M2-EC2: a webhook with a bad signature leaves the page locked', () => 
     const { slug } = await generatePage(app)
     const res = await postWebhook(app, checkoutEvent({ slug }), { secret: WEBHOOK_SECRET })
     assert.equal(res.status, 503)
-    assertLocked(await pageHtml(app, slug), slug)
+    // Go-live: no Buy button either, since a payment could never unlock the page.
+    assertLocked(await pageHtml(app, slug), slug, { buy: false })
   })
 })
 

@@ -1,7 +1,7 @@
 // The production entry (src/index.js) as Vercel loads it, with no infrastructure configured.
 import { describe, test, before } from 'node:test'
 import assert from 'node:assert/strict'
-import { BROWSER_UA, giftForm } from './helpers.js'
+import { BROWSER_UA, SESSION_ID, giftForm } from './helpers.js'
 
 describe('production entry without DATABASE_URL', () => {
   let app
@@ -11,6 +11,10 @@ describe('production entry without DATABASE_URL', () => {
     delete process.env.GOOGLE_API_KEY
     delete process.env.STRIPE_SECRET_KEY
     delete process.env.STRIPE_WEBHOOK_SECRET
+    delete process.env.STRIPE_PAYMENT_LINK
+    delete process.env.SITE_URL
+    delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+    delete process.env.VERCEL_ENV
     app = (await import('../src/index.js')).default
   })
 
@@ -44,5 +48,13 @@ describe('production entry without DATABASE_URL', () => {
     const pixel = await app.request('/c/landing_view/birthday', { headers: { 'user-agent': BROWSER_UA } })
     assert.equal(pixel.status, 200)
     assert.equal(pixel.headers.get('content-type'), 'image/gif')
+  })
+
+  test('the go-live pages and files work without the database, and no beacon runs outside production', async () => {
+    for (const path of ['/privacy', '/terms', '/robots.txt', '/sitemap.xml', '/og.png', '/beacon.js']) {
+      assert.equal((await app.request(path)).status, 200, path)
+    }
+    assert.doesNotMatch(await (await app.request('/privacy')).text(), /beacon\.js/)
+    assert.equal((await app.request(`/paid?session_id=${SESSION_ID}`)).status, 503)
   })
 })

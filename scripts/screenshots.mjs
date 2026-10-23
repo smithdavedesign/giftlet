@@ -1,10 +1,13 @@
 // `npm run screenshots`: proof that giftlet works, as PNGs in docs/screenshots/.
 // Starts the dev server on a free port with a throwaway in-memory database and template
-// copy (no DATABASE_URL, GOOGLE_API_KEY or Stripe key reach it), then drives Chromium
-// from CHROMIUM_PATH (never downloaded) through the buyer's path:
-//   occasion landing page -> form (birthday preselected) -> page made -> paid -> keepsake PDF
-// Payment is a webhook signed with a random secret made for this run, exactly as Stripe
-// would sign it. Sample data only: a made-up recipient and drawn "photos".
+// copy (no DATABASE_URL, GOOGLE_API_KEY or real Stripe value reaches it), then drives
+// Chromium from CHROMIUM_PATH (never downloaded) through the buyer's path:
+//   occasion landing page -> form (birthday preselected) -> preview with the Buy button
+//   -> paid through the payment link -> back via /paid -> the unlocked page
+// STRIPE_PAYMENT_LINK is a placeholder (example.com), so the Buy button shows; it is never
+// clicked. Payment is a webhook signed with a random secret made for this run, exactly as
+// Stripe would sign it for a payment-link session. Sample data only: a made-up recipient
+// and drawn "photos". At most 6 PNGs, each named for what it shows.
 import { spawn } from 'node:child_process'
 import { createHmac, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
@@ -15,6 +18,7 @@ import { chromium, devices } from 'playwright-core'
 const OUT = 'docs/screenshots'
 const DESKTOP = { viewport: { width: 1280, height: 800 } }
 const PHONE = devices['iPhone 13']
+const PLACEHOLDER_PAYMENT_LINK = 'https://example.com/pay'
 
 const MEMORIES = [
   'The road trip where we got lost outside Flagstaff and found the best taco stand in Arizona.',
@@ -152,18 +156,23 @@ async function drawPhotos(browser) {
   }))
 }
 
-// What Stripe sends after a paid checkout, signed the way Stripe documents.
+// What Stripe sends after a paid payment-link checkout (the page's slug comes back as
+// client_reference_id), signed the way Stripe documents. Returns the session id.
 async function payFor(base, slug, secret) {
+  const sessionId = `cs_test_${randomBytes(12).toString('hex')}`
   const event = {
     id: `evt_${randomBytes(8).toString('hex')}`,
     object: 'event',
     type: 'checkout.session.completed',
     data: {
       object: {
-        id: `cs_test_${randomBytes(12).toString('hex')}`,
+        id: sessionId,
         object: 'checkout.session',
         client_reference_id: slug,
-        metadata: { app: 'giftlet' },
+        payment_link: `plink_${randomBytes(8).toString('hex')}`,
+        metadata: {},
+        amount_total: 900,
+        currency: 'usd',
         payment_status: 'paid',
         status: 'complete',
       },
@@ -174,12 +183,24 @@ async function payFor(base, slug, secret) {
   const v1 = createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex')
   const res = await fetch(`${base}/stripe/webhook`, { method: 'POST', headers: { 'stripe-signature': `t=${t},v1=${v1}` }, body: raw })
   if (res.status !== 200) throw new Error(`webhook answered ${res.status}`)
+  return sessionId
 }
 
 async function shot(page, name) {
   const path = `${OUT}/${name}.png`
   await page.screenshot({ path })
   console.log(`saved ${path}`)
+}
+
+async function toBottom(page) {
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await sleep(300)
+}
+
+// The Buy button must be there and point at the payment link for this very page.
+async function checkBuyButton(page, slug) {
+  const href = await page.locator('a.buy[data-signal="checkout"]').getAttribute('href')
+  if (href !== `${PLACEHOLDER_PAYMENT_LINK}?client_reference_id=${slug}`) throw new Error(`unexpected Buy link: ${href}`)
 }
 
 // Shows the keepsake PDF in Chromium's own viewer and screenshots it.
@@ -200,7 +221,8 @@ async function main() {
   const base = `http://127.0.0.1:${port}`
   const webhookSecret = randomBytes(24).toString('hex') // made for this run, never stored
   const env = { ...process.env, PORT: String(port), GIFTLET_PGLITE: 'memory://', STRIPE_WEBHOOK_SECRET: webhookSecret }
-  for (const key of ['DATABASE_URL', 'GOOGLE_API_KEY', 'GEMINI_MODEL', 'STRIPE_SECRET_KEY']) delete env[key]
+  for (const key of ['DATABASE_URL', 'GOOGLE_API_KEY', 'GEMINI_MODEL', 'STRIPE_SECRET_KEY', 'SITE_URL', 'VERCEL_ENV']) delete env[key]
+  env.STRIPE_PAYMENT_LINK = PLACEHOLDER_PAYMENT_LINK
   const server = spawn(process.execPath, ['scripts/dev.js'], { env, stdio: ['ignore', 'ignore', 'inherit'] })
 
   let browser
@@ -227,25 +249,33 @@ async function main() {
     await page.waitForURL(/\/p\/[A-Za-z0-9_-]{22}$/, { timeout: 60_000 })
     const pageUrl = page.url()
     const slug = pageUrl.split('/p/')[1]
-
-    await payFor(base, slug, webhookSecret)
-    await page.goto(pageUrl)
+    // The page just made, still a preview: watermark and the Buy button.
     await page.waitForLoadState('networkidle')
-    // The end of the paid page: joke stats, sign-off, the keepsake link and the credit.
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-    await sleep(300)
+    await checkBuyButton(page, slug)
     await shot(page, 'gift-desktop')
-    await shootKeepsake(desktop, `${pageUrl}/print`, 'keepsake-desktop')
-    await desktop.close()
 
-    // Phone: the same pages at iPhone 13 size.
+    // Phone: the landing page's footer, and the same preview.
     const phone = await browser.newContext(PHONE)
     const mobile = await phone.newPage()
     await mobile.goto(`${base}/birthday`)
+    await toBottom(mobile)
     await shot(mobile, 'landing-mobile')
     await mobile.goto(pageUrl)
     await mobile.waitForLoadState('networkidle')
+    await checkBuyButton(mobile, slug)
     await shot(mobile, 'gift-mobile')
+
+    // Paid through the payment link; Stripe then sends the buyer to /paid, which finds the
+    // page. Unlocked: no watermark, no Buy button, and the keepsake link.
+    const sessionId = await payFor(base, slug, webhookSecret)
+    await page.goto(`${base}/paid?session_id=${sessionId}`)
+    await page.waitForURL(`${pageUrl}?checkout=success`)
+    await page.waitForLoadState('networkidle')
+    for (const [selector, expected] of [['a.buy', 0], ['.watermark', 0], [`a[href="/p/${slug}/print"]`, 1]]) {
+      if ((await page.locator(selector).count()) !== expected) throw new Error(`paid page: expected ${expected} × ${selector}`)
+    }
+    await shootKeepsake(desktop, `${pageUrl}/print`, 'keepsake-desktop')
+    await desktop.close()
     await shootKeepsake(phone, `${pageUrl}/print`, 'keepsake-mobile')
     await phone.close()
   } finally {

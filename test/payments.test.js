@@ -2,8 +2,18 @@
 // creating a Checkout Session (against a fake fetch; nothing reaches Stripe).
 import { describe, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { PRICE, APP_TAG, checkoutParams, paidCheckout, stripeCheckout, verifyStripeEvent } from '../src/payments.js'
-import { OTHER_SECRET, SESSION_ID, WEBHOOK_SECRET, checkoutEvent, silentLog, stripeSignature } from './helpers.js'
+import {
+  PRICE,
+  APP_TAG,
+  checkoutParams,
+  paidCheckout,
+  paymentLinkFor,
+  paymentLinkUrl,
+  stripeCheckout,
+  verifyStripeEvent,
+} from '../src/payments.js'
+import { newSlug } from '../src/web.js'
+import { OTHER_SECRET, PAYMENT_LINK_ID, SESSION_ID, WEBHOOK_SECRET, checkoutEvent, silentLog, stripeSignature } from './helpers.js'
 
 const SLUG = 'AbCdEfGhIjKlMnOpQrSt_-'
 const NOW_MS = 1_760_000_000_000
@@ -102,6 +112,52 @@ describe('paidCheckout', () => {
     const event = checkoutEvent({ slug: SLUG })
     delete event.data.object.id
     assert.deepEqual(paidCheckout(event), { slug: SLUG, sessionId: null })
+  })
+
+  test('a paid session from the Stripe Payment Link unlocks without the app tag when it took at least $9', () => {
+    for (const amountTotal of [900, 1900]) {
+      const event = checkoutEvent({ slug: SLUG, app: null, paymentLink: PAYMENT_LINK_ID, amountTotal })
+      assert.deepEqual(paidCheckout(event), { slug: SLUG, sessionId: SESSION_ID }, String(amountTotal))
+    }
+    // Tagged on the link (metadata is copied to its sessions): the tag alone is enough.
+    const tagged = checkoutEvent({ slug: SLUG, paymentLink: PAYMENT_LINK_ID, amountTotal: 0 })
+    assert.deepEqual(paidCheckout(tagged), { slug: SLUG, sessionId: SESSION_ID })
+  })
+
+  test("an untagged payment-link session that took less than the price, another currency, or isn't paid never unlocks", () => {
+    const link = { slug: SLUG, app: null, paymentLink: PAYMENT_LINK_ID }
+    const cases = [
+      ['$5 (another product’s cheaper link)', checkoutEvent({ ...link, amountTotal: 500 })],
+      ['$8.99', checkoutEvent({ ...link, amountTotal: 899 })],
+      ['900 in euros', checkoutEvent({ ...link, currency: 'eur' })],
+      ['amount as a string', checkoutEvent({ ...link, amountTotal: '900' })],
+      ['no amount', checkoutEvent({ ...link, amountTotal: null })],
+      ['unpaid', checkoutEvent({ ...link, paymentStatus: 'unpaid' })],
+      ['not from a payment link either', checkoutEvent({ slug: SLUG, app: null })],
+      ['payment_link not a string', checkoutEvent({ ...link, paymentLink: { id: PAYMENT_LINK_ID } })],
+    ]
+    for (const [label, event] of cases) assert.equal(paidCheckout(event), null, label)
+  })
+})
+
+describe('the payment link (STRIPE_PAYMENT_LINK)', () => {
+  test('paymentLinkUrl accepts https URLs only', () => {
+    assert.equal(paymentLinkUrl('https://buy.stripe.com/test_00g5kk'), 'https://buy.stripe.com/test_00g5kk')
+    assert.equal(paymentLinkUrl('  https://pay.giftlet.example/b/abc  '), 'https://pay.giftlet.example/b/abc')
+    for (const bad of [undefined, null, '', '   ', 42, 'http://buy.stripe.com/x', 'javascript:alert(1)', 'buy.stripe.com/x', 'not a url', 'https://someone@buy.stripe.com/x']) {
+      assert.equal(paymentLinkUrl(bad), null, String(bad))
+    }
+  })
+
+  test('paymentLinkFor adds the page as client_reference_id and keeps any other query', () => {
+    assert.equal(paymentLinkFor('https://buy.stripe.com/test_00g5kk', SLUG), `https://buy.stripe.com/test_00g5kk?client_reference_id=${SLUG}`)
+    const url = new URL(paymentLinkFor('https://buy.stripe.com/x?prefilled_promo_code=HELLO&client_reference_id=old', SLUG))
+    assert.equal(url.searchParams.get('prefilled_promo_code'), 'HELLO')
+    assert.deepEqual(url.searchParams.getAll('client_reference_id'), [SLUG])
+  })
+
+  test('every slug giftlet makes is a valid client_reference_id (letters, digits, - and _, at most 200)', () => {
+    for (let i = 0; i < 200; i++) assert.match(newSlug(), /^[A-Za-z0-9_-]{1,200}$/)
   })
 })
 

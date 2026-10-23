@@ -2,25 +2,25 @@
 
 ## Screenshots
 
-Made by `npm run screenshots`: the real app on localhost, driven by Chromium through the buyer's path. The form is filled with sample answers for a made-up "Maya", with drawn pictures standing in for photos, and paid with a correctly signed Stripe webhook.
+Made by `npm run screenshots`: the real app on localhost, driven by Chromium through the buyer's path. It uses sample answers for a made-up "Maya", drawn pictures instead of photos, a placeholder `STRIPE_PAYMENT_LINK` (`https://example.com/pay`, never clicked) and a correctly signed Stripe webhook for a payment-link checkout.
 
 ![Birthday landing page on desktop](docs/screenshots/landing-desktop.png)
-The start page: the `/birthday` landing page, with its "Make a birthday page" link into the form (birthday preselected).
+The start page, `/birthday` at 1280×800: the pitch, the price and "Make a birthday page", which opens the form with birthday preselected.
 
-![Birthday landing page on a phone](docs/screenshots/landing-mobile.png)
-The same landing page on an iPhone 13.
+![Bottom of the birthday landing page on a phone, with the footer](docs/screenshots/landing-mobile.png)
+The same page on an iPhone 13, scrolled to the footer: the price and refund line and the Privacy, Terms and Contact links that every public page has.
 
-![End of a paid gift page on desktop](docs/screenshots/gift-desktop.png)
-The result after paying: the page made from the form, unlocked (no watermark), with joke-labelled stats, the "Printable keepsake" link and the "Make one" credit.
+![A gift page made from the form, as a preview with the Unlock for $9 button, on desktop](docs/screenshots/gift-desktop.png)
+The core action's result: the form, submitted, made this page. It's a watermarked preview whose Buy button ("Unlock for $9") points at the payment link for this page (`?client_reference_id=<page>`, checked by the script).
 
-![Top of the paid gift page on a phone](docs/screenshots/gift-mobile.png)
-The same gift page on a phone: headline, name, intro and the uploaded photos.
+![The same preview with the Buy button on a phone](docs/screenshots/gift-mobile.png)
+The same preview and Buy button on a phone.
 
-![Keepsake PDF in Chrome's viewer on desktop](docs/screenshots/keepsake-desktop.png)
-The keepsake: `GET /p/<slug>/print` for the paid page, a 2-page PDF (cover with photos; memories and joke stats) rendered by Chrome's own PDF viewer.
+![Keepsake PDF of the paid page in Chrome's viewer on desktop](docs/screenshots/keepsake-desktop.png)
+After paying: the webhook unlocked the page and `/paid` sent the buyer back to it. Its printable keepsake (`/p/<page>/print`, 402 until paid) is a 2-page PDF in Chrome's viewer.
 
 ![Keepsake PDF at phone size](docs/screenshots/keepsake-mobile.png)
-The same PDF at phone size: both pages, cover and story. Chrome's desktop PDF viewer renders it soft under phone emulation.
+The same PDF at phone size, both pages. Chrome's desktop PDF viewer renders it soft under phone emulation.
 
 For someone with a birthday, anniversary or send-off days away, it turns a few answers and their own photos into a private one-page website with funny AI copy and a printable keepsake for $9–$19.
 
@@ -28,6 +28,7 @@ For someone with a birthday, anniversary or send-off days away, it turns a few a
 - [PRD](PRD.md)
 - [Roadmap](ROADMAP.md)
 - [Build notes](BUILD.md): what works now, how to run and deploy it
+- [Launch readiness](LAUNCH-READY.md): search tags, privacy and terms, the Buy button, the usage beacon, and what's left before launch
 
 Effort: Low · Confidence: Low
 
