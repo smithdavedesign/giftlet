@@ -534,7 +534,7 @@ M1–M3 are built: the MVP can make a page, take $9 for it, give a keepsake, and
 - **David's decisions** (the `request` lines in `.provision`):
   - **Hosting.** Vercel Hobby is non-commercial only, so Stripe stays in test mode until this is settled. Vercel Pro is paid; Cloudflare Workers is free and allows commercial use. pdf-lib is pure JS and would come along; the `pg` driver would change.
   - **Stripe keys and the webhook endpoint.**
-  - **Legal pages before charging:** terms, refunds and privacy. There is no REVENUE.md, so this wasn't built. The privacy policy can truthfully say that analytics are counts only, with no cookies or IPs. A refund link would use the `checkout_session` kept on each page.
+  - ~~**Legal pages before charging.**~~ Done in the go-live pass: `/privacy` and `/terms`, plus search/sharing tags, robots.txt, the sitemap, the Stripe Payment Link Buy button and the RepoHQ beacon. See [LAUNCH-READY.md](LAUNCH-READY.md) for what changed and what's left (the payment link and webhook secret).
 - **Run the demand test:** post the three landing links in targeted communities, then read `npm run funnel` weekly against the PRD's thresholds (≥3% click rate; ≥5 paid orders in 30 days; removed <5%; credit clicks ≥10% of paid pages).
 - **Deliberately deferred PRD items:**
   - the $19 premium tier (premium theme + custom message reveal);
@@ -570,8 +570,10 @@ No `vercel env` lines were added for the Stripe values. They come from David, no
 Every variable is optional at runtime:
 - without `DATABASE_URL`, the form and the landing pages still render, the pixel still answers (nothing is counted), and data routes, including `/print`, answer 503;
 - without `GOOGLE_API_KEY`, copy comes from templates;
-- without `STRIPE_SECRET_KEY`, previews work and the unlock button answers 503;
-- without `STRIPE_WEBHOOK_SECRET`, the webhook answers 503 and nothing can be unlocked.
+- without `STRIPE_PAYMENT_LINK` or `STRIPE_SECRET_KEY`, previews work and show no Buy button (go-live; before, the unlock button answered 503);
+- without `STRIPE_WEBHOOK_SECRET`, the webhook answers 503, nothing can be unlocked, and so no Buy button shows either (go-live);
+- `SITE_URL` (optional) pins the canonical origin; otherwise Vercel's `VERCEL_PROJECT_PRODUCTION_URL`, else the request's;
+- the RepoHQ beacon only loads when Vercel's `VERCEL_ENV` is `production`.
 
 No secret appears in the repo. Tests build fake keys, webhook secrets and session ids at runtime from a prefix and filler.
 

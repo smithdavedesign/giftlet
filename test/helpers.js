@@ -65,10 +65,21 @@ export function giftForm({
   return form
 }
 
-export async function makeTestApp({ writeCopy, createCheckout, stripeWebhookSecret = WEBHOOK_SECRET, log = silentLog } = {}) {
+// Payments are configured by default (a fake Checkout Session and the webhook secret), as
+// in production, so unpaid pages show the Buy button. Pass `createCheckout: null` to switch
+// them off, or `paymentLink` to sell through a Stripe Payment Link.
+export async function makeTestApp({
+  writeCopy,
+  createCheckout = fakeCheckout().createCheckout,
+  stripeWebhookSecret = WEBHOOK_SECRET,
+  paymentLink,
+  siteUrl,
+  beacon,
+  log = silentLog,
+} = {}) {
   const db = new PGlite()
   const store = createStore(db)
-  const app = createApp({ store, writeCopy, createCheckout, stripeWebhookSecret, log })
+  const app = createApp({ store, writeCopy, createCheckout, stripeWebhookSecret, paymentLink, siteUrl, beacon, log })
   return { app, db, store }
 }
 
@@ -85,13 +96,20 @@ export function stripeSignature(rawBody, { secret = WEBHOOK_SECRET, timestamp = 
   return `t=${timestamp},v1=${v1}`
 }
 
-// A Stripe event wrapping a Checkout Session, shaped like the real payload.
+// The id Stripe gives a Payment Link (built at runtime, like the other fakes).
+export const PAYMENT_LINK_ID = ['plink', 'A1b2C3d4'.repeat(3)].join('_')
+
+// A Stripe event wrapping a Checkout Session, shaped like the real payload. `paymentLink`
+// makes it a session created by a Payment Link (which has no app tag unless set on the link).
 export function checkoutEvent({
   slug,
   type = 'checkout.session.completed',
   paymentStatus = 'paid',
   app = 'giftlet',
   sessionId = SESSION_ID,
+  paymentLink = null,
+  amountTotal = 900,
+  currency = 'usd',
 } = {}) {
   return {
     id: `evt_${'0a1b2c3d'.repeat(3)}`,
@@ -106,8 +124,9 @@ export function checkoutEvent({
         metadata: app === null ? {} : { app },
         payment_status: paymentStatus,
         status: 'complete',
-        amount_total: 900,
-        currency: 'usd',
+        amount_total: amountTotal,
+        currency,
+        payment_link: paymentLink,
       },
     },
   }

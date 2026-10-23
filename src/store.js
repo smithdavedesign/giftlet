@@ -27,6 +27,8 @@ ALTER TABLE pages ADD COLUMN IF NOT EXISTS checkout_session text;
 -- M3: the occasion outlives a takedown (it says nothing about the recipient), so the
 -- funnel can still count a removed page against its occasion.
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS occasion text;
+-- Go-live: the payment link's return URL (/paid?session_id=…) finds its page by session.
+CREATE INDEX IF NOT EXISTS pages_checkout_session ON pages (checkout_session);
 -- M3: first-party analytics. One counter per UTC day, event and occasion; no visitor data.
 CREATE TABLE IF NOT EXISTS daily_counts (
   day date NOT NULL,
@@ -111,6 +113,18 @@ export function createStore(db) {
         [slug, sessionId],
       )
       return rows.length === 1
+    },
+
+    // The live page a paid Checkout Session unlocked, or null (not paid yet, or removed).
+    async findPaidSlug(sessionId) {
+      await ensureSchema()
+      const { rows } = await db.query(
+        `SELECT slug FROM pages
+         WHERE checkout_session = $1 AND paid_at IS NOT NULL AND taken_down_at IS NULL
+         LIMIT 1`,
+        [sessionId],
+      )
+      return rows[0]?.slug ?? null
     },
 
     async getPhoto(slug, position) {

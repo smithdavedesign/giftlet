@@ -2,8 +2,9 @@
 // Uses DATABASE_URL if set; otherwise an on-disk PGlite database in .data/ (no setup),
 // or a throwaway in-memory one with GIFTLET_PGLITE=memory:// (the screenshot run uses that).
 // Uses GOOGLE_API_KEY if set; otherwise template copy.
-// Uses STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET (test mode) if set; forward events with
-// `stripe listen --forward-to localhost:3000/stripe/webhook`. Without them pages stay previews.
+// Uses STRIPE_PAYMENT_LINK or STRIPE_SECRET_KEY, plus STRIPE_WEBHOOK_SECRET (test mode), if set;
+// forward events with `stripe listen --forward-to localhost:3000/stripe/webhook`. Without
+// them pages stay previews and show no Buy button.
 import { mkdirSync } from 'node:fs'
 import { serve } from '@hono/node-server'
 import pg from 'pg'
@@ -32,6 +33,9 @@ const app = createApp({
   writeCopy: geminiWriter({ apiKey: process.env.GOOGLE_API_KEY, model: process.env.GEMINI_MODEL }),
   createCheckout: stripeCheckout({ secretKey: process.env.STRIPE_SECRET_KEY }),
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  paymentLink: process.env.STRIPE_PAYMENT_LINK,
+  siteUrl: process.env.SITE_URL,
+  beacon: process.env.VERCEL_ENV === 'production', // so never in local runs
 })
 
 const port = Number(process.env.PORT) || 3000
