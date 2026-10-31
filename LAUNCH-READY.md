@@ -63,7 +63,7 @@ giftlet sells one thing: a $9 unlock for **one specific page**. So the Buy butto
 
 ### 4. The RepoHQ beacon
 
-`src/beacon.js` is served at `/beacon.js` and POSTs `{"slug":"giftlet","kind":…,"referrer":…}` to `https://repohq.vercel.app/api/ideas/signal` with `keepalive: true`, `credentials: 'omit'` and `content-type: application/json`. It's fire-and-forget: errors are swallowed.
+`src/beacon.js` is served at `/beacon.js` and POSTs `{"slug":"giftlet","kind":…,"referrer":…}` to `https://idea-factory.1426davejobs.workers.dev/api/ideas/signal` with `keepalive: true`, `credentials: 'omit'` and `content-type: application/json`. It's fire-and-forget: errors are swallowed.
 
 - **`visit`:** every public page (loaded with `data-page="public"`), once per browser session (sessionStorage `repohq:visit`).
 - **`activate`:** giftlet's core action is **making a gift page**: the form's `POST /generate` succeeded and a preview exists. `form.js` dispatches `giftlet:activate` right before it navigates to the new page. It's sent once per browser (localStorage `repohq:activate`).
@@ -74,7 +74,7 @@ giftlet sells one thing: a $9 unlock for **one specific page**. So the Buy butto
   - **bots and screenshot runs:** `navigator.webdriver`;
   - **the owner's browser:** localStorage `repohq:notrack` is set;
   - **blocked storage:** without it the "once" can't be guaranteed, so nothing is sent rather than overcounting.
-- **CSP:** `connect-src` now allows `https://repohq.vercel.app` and nothing else new.
+- **CSP:** `connect-src` now allows `https://idea-factory.1426davejobs.workers.dev` and nothing else new.
 
 ### 5. Deployment
 
@@ -150,7 +150,7 @@ After deploying:
 3. **Test the whole loop** in test mode: pay, get unlocked, then refund. After that, switch the link and the webhook to live mode, and do one real $9 charge and refund (REVENUE.md, "Before charging anyone").
 4. **Hosting (still open from M2):** Vercel Hobby doesn't allow commercial use, so taking live payments there breaks its terms. Choose Vercel Pro or another host before going live (BUILD.md, "What's left").
 5. **A custom domain** if you want one: add it in Vercel. Canonical URLs follow `VERCEL_PROJECT_PRODUCTION_URL` automatically; set `SITE_URL` to pin a specific one. Then update the Stripe webhook URL and the payment link's redirect to the new domain.
-6. **RepoHQ:** the beacon sends `content-type: application/json`, so browsers send a CORS preflight first. `https://repohq.vercel.app/api/ideas/signal` must answer it for the production origin. I couldn't reach it from the sandbox to check. Then mark your own browser with `repohq:notrack`.
+6. **RepoHQ:** the beacon sends `content-type: application/json`, so browsers send a CORS preflight first. `https://idea-factory.1426davejobs.workers.dev/api/ideas/signal` must answer it for the production origin. I couldn't reach it from the sandbox to check. Then mark your own browser with `repohq:notrack`.
 7. Check that `DATABASE_URL` and `GOOGLE_API_KEY` from the MVP's provisioning are in the Vercel env. Without them pages can't be made, though the public pages still work.
 
 ## Self-review

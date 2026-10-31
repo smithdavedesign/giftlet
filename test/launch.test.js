@@ -248,7 +248,7 @@ describe('privacy and terms', () => {
     const app = createApp({ store: null, log: silentLog })
     const html = await (await app.request('/privacy')).text()
     for (const event of ['visit', 'activate', 'checkout']) assert.match(html, new RegExp(`<code>${event}</code>`), event)
-    assert.match(html, /repohq\.vercel\.app/)
+    assert.match(html, /idea-factory\.1426davejobs\.workers\.dev/)
     assert.match(html, /<h2>Cookies<\/h2>\s*<p>None\./)
     assert.match(html, /Gemini/)
     assert.match(html, /never the photos/)
