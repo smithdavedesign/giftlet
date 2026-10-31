@@ -575,7 +575,7 @@ export function privacyPage(site) {
 <p>To find out whether giftlet is worth keeping, it counts a few things. None of them records who you are.</p>
 <ul>
   <li><strong>Daily counters in giftlet's database:</strong> landing-page views, clicks from a landing page into the form, and clicks on "Make one for someone" on a gift page. Only numbers per day: no IP address, no cookie, no browser details.</li>
-  <li><strong>A usage beacon to RepoHQ</strong> (repohq.vercel.app), the tool giftlet's maker uses to see which of their products get used. It sends three events:
+  <li><strong>A usage beacon to RepoHQ</strong> (idea-factory.1426davejobs.workers.dev), the tool giftlet's maker uses to see which of their products get used. It sends three events:
     <ul>
       <li><code>visit</code>: you opened one of the public pages (once per browser session);</li>
       <li><code>activate</code>: you made your first gift page in this browser (once per browser);</li>

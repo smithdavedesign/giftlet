@@ -67,7 +67,7 @@ describe('beacon: what it sends', () => {
     const { sent } = loadPage({ referrer: 'https://www.reddit.com/r/LongDistance/' })
     assert.equal(sent.length, 1)
     const [{ url, init, body }] = sent
-    assert.equal(url, 'https://repohq.vercel.app/api/ideas/signal')
+    assert.equal(url, 'https://idea-factory.1426davejobs.workers.dev/api/ideas/signal')
     assert.equal(url, SIGNAL_URL)
     assert.equal(init.method, 'POST')
     assert.equal(init.keepalive, true)
@@ -219,7 +219,7 @@ describe('beacon: which pages load it', () => {
     assert.ok(code.includes(SIGNAL_URL))
     const csp = (await app.request('/')).headers.get('content-security-policy')
     const connect = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('connect-src'))
-    assert.equal(connect, "connect-src 'self' https://repohq.vercel.app")
+    assert.equal(connect, "connect-src 'self' https://idea-factory.1426davejobs.workers.dev")
   })
 
   test('the form script announces "activate" only after /generate succeeded, before leaving for the new page', () => {

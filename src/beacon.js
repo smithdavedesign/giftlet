@@ -10,10 +10,10 @@
 // no cookies. The referrer is sent only when the visitor came from another site, so a gift
 // page's private link never leaves the page. Nothing is sent by automated browsers
 // (navigator.webdriver) or from a browser with localStorage "repohq:notrack" set (the owner's).
-export const SIGNAL_URL = 'https://repohq.vercel.app/api/ideas/signal'
+export const SIGNAL_URL = 'https://idea-factory.1426davejobs.workers.dev/api/ideas/signal'
 
 export function beaconClient() {
-  const ENDPOINT = 'https://repohq.vercel.app/api/ideas/signal'
+  const ENDPOINT = 'https://idea-factory.1426davejobs.workers.dev/api/ideas/signal'
   const isPublicPage = document.currentScript?.dataset.page === 'public'
 
   // Off for bots and the owner. Storage that can't be read counts as off too.
