@@ -13,7 +13,10 @@
     // Canonical URLs, the sitemap and share tags (a custom domain goes here).
     "SITE_URL": "https://giftlet.1426davejobs.workers.dev",
     // The Worker is production: public pages load the usage beacon.
-    "NEXT_PUBLIC_DEPLOY_ENV": "production"
+    "NEXT_PUBLIC_DEPLOY_ENV": "production",
+    // gemini-flash-latest took past the 20 s copy timeout on the Worker (21.7 s live, 2026-11-08), so every page
+    // fell back to template copy. Flash-Lite answers in a few seconds, as on squadwrap and alterpaw.
+    "GEMINI_MODEL": "gemini-flash-lite-latest"
   },
   // Secrets: DATABASE_URL and GOOGLE_API_KEY (`provision cloudflare secret giftlet <KEY>`).
   "workers_dev": true,
