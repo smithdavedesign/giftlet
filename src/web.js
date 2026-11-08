@@ -52,7 +52,8 @@ import {
 const SLUG_PATTERN = /^[A-Za-z0-9_-]{12,64}$/
 const PHOTO_NUMBER = /^[1-9][0-9]?$/
 // Room for the maximum number of maximum-size photos plus the text fields. (On Vercel
-// the platform's own 4.5 MB request cap is lower; the browser shrinks photos to fit.)
+// the platform's own 4.5 MB request cap is lower; the browser shrinks photos to fit, which also
+// keeps them well under a Cloudflare Worker's 100 MB.)
 const MAX_BODY_BYTES = LIMITS.photosMax * LIMITS.photoMaxBytes + 1024 * 1024
 // Stripe's checkout events are a few KB; anything near this is not from Stripe.
 const WEBHOOK_MAX_BYTES = 256 * 1024
@@ -66,6 +67,10 @@ const PUBLIC_CACHE = 'public, max-age=300'
 
 // 16 random bytes -> 22 URL-safe characters (128 bits): the slug is the page's only secret.
 export const newSlug = () => randomBytes(16).toString('base64url')
+
+// The deployment the app runs as: NEXT_PUBLIC_DEPLOY_ENV (the Cloudflare Worker sets `production` in
+// wrangler.jsonc), else Vercel's VERCEL_ENV, else ''. The usage beacon runs only in production.
+export const deployEnv = (env) => env.NEXT_PUBLIC_DEPLOY_ENV || env.VERCEL_ENV || ''
 
 // SITE_URL or Vercel's VERCEL_PROJECT_PRODUCTION_URL (a bare host) -> an origin, or null.
 export function siteOrigin(value) {

@@ -22,12 +22,12 @@ giftlet is a Hono app, not Next.js, so Hono routes and one shared `layout()` in 
 - **The share image** `/og.png` is drawn in code (`src/share-image.js`): a confetti background, "giftlet" in a dot-matrix font and "a personal gift website / in two minutes, for $9", encoded as PNG with `node:zlib`. Nothing is copied from the web, and there's no build step or image file. It's drawn on the first request (~130 ms), kept in memory and cached by browsers for a day.
 - **`/robots.txt`** allows everything and points at the sitemap. It deliberately doesn't disallow `/p/`: crawlers have to fetch a gift page to see its `noindex`.
 - **`/sitemap.xml`** lists exactly the six public pages.
-- **Absolute URLs** use, in order: `SITE_URL` if set, then Vercel's `VERCEL_PROJECT_PRODUCTION_URL` (set automatically, also on previews, so previews point canonically at production), then the request's own origin.
+- **Absolute URLs** use, in order: `SITE_URL` if set (the Cloudflare Worker sets it in `wrangler.jsonc`), then Vercel's `VERCEL_PROJECT_PRODUCTION_URL` (set automatically, also on previews, so previews point canonically at production), then the request's own origin.
 
 ### 2. Privacy and terms
 
 - **`/privacy`** says what's stored: the answers, photos, generated words and payment state, kept until the page's "Remove this page" link is used. It also says:
-  - who else handles data: Google Gemini (text only, never photos; the free tier lets Google use it), Stripe, Vercel and Neon;
+  - who else handles data: Google Gemini (text only, never photos; the free tier lets Google use it), Stripe, Cloudflare (the host since 2026-11-08; Vercel before) and Neon;
   - the first-party daily counters;
   - **the RepoHQ beacon and its three events** (`visit`, `activate`, `checkout`), what each carries and the two storage markers;
   - **cookies: none**;
@@ -70,7 +70,7 @@ giftlet sells one thing: a $9 unlock for **one specific page**. So the Buy butto
 - **`checkout`:** every click on the Buy button (`data-signal="checkout"`). Unpaid gift pages and the 402 page load the beacon as `data-page="private"`, so they count only this event, never a visit.
 - **Referrer:** `document.referrer` only when its origin differs from `location.origin`, else `null`. giftlet also sends `Referrer-Policy: no-referrer`, so its own pages never pass a gift link along. The payload never contains the page's address.
 - **When nothing is sent:**
-  - **previews and local runs:** the server only adds the script tag when `VERCEL_ENV === "production"`. A Hono function reads Vercel's `VERCEL_ENV` directly, so there's no `NEXT_PUBLIC_` copy;
+  - **previews and local runs:** the server only adds the script tag when `deployEnv(env) === "production"`: `NEXT_PUBLIC_DEPLOY_ENV`, which the Cloudflare Worker sets in `wrangler.jsonc`, else Vercel's `VERCEL_ENV`;
   - **bots and screenshot runs:** `navigator.webdriver`;
   - **the owner's browser:** localStorage `repohq:notrack` is set;
   - **blocked storage:** without it the "once" can't be guaranteed, so nothing is sent rather than overcounting.
@@ -142,16 +142,16 @@ After deploying:
    - Product "giftlet: personal gift page", **$9 USD, one-time**.
    - After payment: choose "Don't show confirmation page" and redirect to `https://<your domain>/paid?session_id={CHECKOUT_SESSION_ID}`, typed exactly like that.
    - Optional: add metadata `app` = `giftlet` on the link. It's copied to every session and makes the webhook's match exact.
-   - Paste the link URL into the `giftlet` Vercel project's env as **`STRIPE_PAYMENT_LINK`** (Production).
+   - Put it on the Worker with `provision stripe giftlet … --host cloudflare` (**`STRIPE_PAYMENT_LINK`**, read on every request, so no redeploy). On Vercel it went into the project's env.
 2. **Add the webhook, or the button stays hidden.**
    - In Stripe, add an endpoint at `https://<your domain>/stripe/webhook` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
-   - Put its signing secret into Vercel as **`STRIPE_WEBHOOK_SECRET`**, then redeploy.
+   - Its signing secret becomes the Worker secret **`STRIPE_WEBHOOK_SECRET`** (`provision stripe … --webhook`, or `provision cloudflare secret giftlet STRIPE_WEBHOOK_SECRET` once it's in the keychain).
    - Use the final domain with no redirect in front of it; Stripe treats a 3xx as a failed delivery.
 3. **Test the whole loop** in test mode: pay, get unlocked, then refund. After that, switch the link and the webhook to live mode, and do one real $9 charge and refund (REVENUE.md, "Before charging anyone").
-4. **Hosting (still open from M2):** Vercel Hobby doesn't allow commercial use, so taking live payments there breaks its terms. Choose Vercel Pro or another host before going live (BUILD.md, "What's left").
-5. **A custom domain** if you want one: add it in Vercel. Canonical URLs follow `VERCEL_PROJECT_PRODUCTION_URL` automatically; set `SITE_URL` to pin a specific one. Then update the Stripe webhook URL and the payment link's redirect to the new domain.
+4. **Hosting:** done on 2026-11-08. giftlet moved from Vercel Hobby (non-commercial use only) to a Cloudflare Worker on the free plan, which allows commercial use.
+5. **A custom domain** if you want one: add it to the Worker in Cloudflare and change `SITE_URL` in `wrangler.jsonc`. Then update the Stripe webhook URL and the payment link's redirect to the new domain.
 6. **RepoHQ:** the beacon sends `content-type: application/json`, so browsers send a CORS preflight first. `https://idea-factory.1426davejobs.workers.dev/api/ideas/signal` must answer it for the production origin. I couldn't reach it from the sandbox to check. Then mark your own browser with `repohq:notrack`.
-7. Check that `DATABASE_URL` and `GOOGLE_API_KEY` from the MVP's provisioning are in the Vercel env. Without them pages can't be made, though the public pages still work.
+7. `DATABASE_URL` and `GOOGLE_API_KEY` are Worker secrets (pushed 2026-11-08). Pages get made, but the live check on 2026-11-08 got template copy: the Worker's Gemini call failed fast. The reason is in the Worker's logs (Cloudflare dashboard → giftlet → Logs: "Gemini answered HTTP …"). Likely causes are the agent GCP project's free-tier quota or Google's location check. Live Gemini was never verified on Vercel either.
 
 ## Self-review
 
