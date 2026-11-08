@@ -515,7 +515,7 @@ export function unavailablePage() {
 
 // --- Privacy and terms: plain words, and only what the code actually does ---
 
-const POLICY_DATE = '23 October 2026'
+const POLICY_DATE = '8 November 2026'
 const issuesLink = html`<a href="${ISSUES_URL}">github.com/smithdavedesign/giftlet/issues</a>`
 
 function legalPage({ title, description, path, heading, site, body }) {
@@ -568,7 +568,7 @@ export function privacyPage(site) {
 <ul>
   <li><strong>Google (Gemini)</strong> writes the page's words. It receives the name, occasion, relationship, tone and memories, never the photos. giftlet uses Gemini's free tier, whose terms let Google use that text to improve its products, which can include people at Google reading it. So don't write anything in a memory you wouldn't want a stranger to read.</li>
   <li><strong>Stripe</strong> takes the payment on its own checkout page. giftlet never sees your card. Stripe receives the page's random ID, so the payment unlocks the right page, and nothing about the recipient.</li>
-  <li><strong>Vercel</strong> hosts the site and <strong>Neon</strong> hosts the database. Like any web host, Vercel handles your IP address and browser details to serve each page and may keep them in short-lived logs.</li>
+  <li><strong>Cloudflare</strong> hosts the site (Cloudflare Workers) and <strong>Neon</strong> hosts the database. Like any web host, Cloudflare handles your IP address and browser details to serve each page and may keep them in short-lived logs.</li>
 </ul>
 
 <h2>Usage counts</h2>

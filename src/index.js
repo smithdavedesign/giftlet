@@ -1,5 +1,7 @@
-// Production entry. Vercel deploys the default-exported Hono app with zero config.
-// Configuration comes only from environment variables (set by the credential broker):
+// The Vercel entry: Vercel deploys the default-exported Hono app with zero config. Production runs
+// on the Cloudflare Worker in src/worker.js since 2026-11-08 (the Vercel account is blocked); it
+// wires the same app from the Worker's env. Configuration comes only from environment variables
+// (set by the credential broker):
 //   DATABASE_URL    Neon Postgres connection string (pooled). Without it, data routes answer 503.
 //   GOOGLE_API_KEY  Gemini API key. Without it, pages use template copy.
 //   GEMINI_MODEL    optional model override (default: gemini-flash-latest).
@@ -7,9 +9,9 @@
 //   STRIPE_SECRET_KEY      or: creates Checkout Sessions instead (used when there is no payment link).
 //   STRIPE_WEBHOOK_SECRET  verifies Stripe's webhook. Without it, no page can be unlocked, so no Buy button shows.
 //   SITE_URL               optional canonical origin; else Vercel's VERCEL_PROJECT_PRODUCTION_URL, else the request's.
-//   VERCEL_ENV             set by Vercel; the RepoHQ usage beacon runs only when it is "production".
+//   NEXT_PUBLIC_DEPLOY_ENV or VERCEL_ENV (set by Vercel): the RepoHQ usage beacon runs only when it is "production".
 import pg from 'pg'
-import { createApp } from './web.js'
+import { createApp, deployEnv } from './web.js'
 import { createStore, poolDb } from './store.js'
 import { geminiWriter } from './copy.js'
 import { stripeCheckout } from './payments.js'
@@ -31,7 +33,7 @@ const app = createApp({
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   paymentLink: process.env.STRIPE_PAYMENT_LINK,
   siteUrl: process.env.SITE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL,
-  beacon: process.env.VERCEL_ENV === 'production',
+  beacon: deployEnv(process.env) === 'production',
 })
 
 export default app

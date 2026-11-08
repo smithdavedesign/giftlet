@@ -1,0 +1,21 @@
+{
+  // The giftlet Worker on Cloudflare (free plan): `provision cloudflare deploy giftlet "$PWD"`.
+  // No build step: wrangler bundles src/worker.js (the Hono app, pg and pdf-lib) at deploy.
+  "name": "giftlet",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-15",
+  // node:crypto, node:zlib and Buffer for the app; sockets for pg.
+  "compatibility_flags": ["nodejs_compat"],
+  // /form.js and /beacon.js are functions' source (formClient.toString()): esbuild's keepNames would
+  // put __name() calls, which don't exist in the browser, into them.
+  "keep_names": false,
+  "vars": {
+    // Canonical URLs, the sitemap and share tags (a custom domain goes here).
+    "SITE_URL": "https://giftlet.1426davejobs.workers.dev",
+    // The Worker is production: public pages load the usage beacon.
+    "NEXT_PUBLIC_DEPLOY_ENV": "production"
+  },
+  // Secrets: DATABASE_URL and GOOGLE_API_KEY (`provision cloudflare secret giftlet <KEY>`).
+  "workers_dev": true,
+  "observability": { "enabled": true }
+}
